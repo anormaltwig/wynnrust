@@ -1,0 +1,13 @@
+[package]
+name = "wynnrust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = "0.12.9"
+serde = { version = "1.0.214", features = ["serde_derive"] }
+serde_json = "1.0.132"
+
+[dev-dependencies]
+tokio = { version = "1.41.0", features = ["macros", "rt"] }
+tokio-macros = "2.4.0"

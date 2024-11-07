@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use serde::{de, Deserialize};
+use serde::Deserialize;
+
+use crate::util::deserialize_null_bool;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,7 +55,7 @@ pub struct PlayerResponse {
 	// pub legacyRankColor { main: String, sub: String }
 	pub shortened_rank: Option<String>,
 	pub support_rank: String,
-	#[serde(deserialize_with = "null_boolean")]
+	#[serde(deserialize_with = "deserialize_null_bool")]
 	pub veteran: bool,
 	pub first_join: String,
 	pub last_join: String,
@@ -66,9 +68,12 @@ pub struct PlayerResponse {
 	pub public_profile: bool,
 }
 
-fn null_boolean<'d, D>(deserializer: D) -> Result<bool, D::Error>
-where
-	D: de::Deserializer<'d>,
-{
-	Ok(Option::deserialize(deserializer)?.unwrap_or(false))
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerMulti {
+	pub rank: String,
+	pub rank_badge: Option<String>,
+	pub shortened_rank: Option<String>,
+	pub stored_name: String,
+	pub support_rank: Option<String>,
 }

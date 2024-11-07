@@ -4,7 +4,7 @@ use wynnrust::WynnApi;
 async fn player_query() {
 	let api = WynnApi::new();
 
-	api.query_user("ANormalTwig").await.unwrap();
+	dbg!(api.query_user("ANormalTwig").await.unwrap());
 }
 
 #[tokio::test]

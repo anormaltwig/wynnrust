@@ -1,14 +1,16 @@
-use error::Kind;
-use guild::{GuildList, GuildResponse};
-use player::PlayerResponse;
-use reqwest::{Client, Url};
+use guild::{GuildList, GuildMulti, GuildResponse};
+use player::{PlayerMulti, PlayerResponse};
+use reqwest::{Client, Response, StatusCode, Url};
 
 pub mod guild;
 pub mod player;
 
 mod error;
+mod multi_selector;
+mod util;
 
 pub use error::{Error, Result};
+pub use multi_selector::MaybeMulti;
 use serde::de::DeserializeOwned;
 
 const WYNNCRAFT_API: &str = "https://api.wynncraft.com/v3/";
@@ -30,7 +32,7 @@ impl WynnApi {
 		let player_url = wynn_url.join("player/").unwrap();
 		let guild_url = wynn_url.join("guild/").unwrap();
 		let guild_prefix_url = guild_url.join("prefix/").unwrap();
-		let guild_list_url= guild_url.join("list/guild").unwrap();
+		let guild_list_url = guild_url.join("list/guild").unwrap();
 
 		Self {
 			client,
@@ -41,52 +43,65 @@ impl WynnApi {
 		}
 	}
 
-	async fn json_req<R>(&self, url: Url) -> crate::Result<R>
+	async fn get(&self, url: Url) -> crate::Result<Response> {
+		self.client
+			.get(url)
+			.send()
+			.await
+			.map_err(crate::Error::request)
+	}
+
+	fn decode_json<R>(json: &str) -> crate::Result<R>
 	where
 		R: DeserializeOwned,
 	{
-		let json = match self.client.get(url).send().await {
-			Ok(res) => match res.text().await {
-				Ok(text) => text,
-				Err(err) => {
-					return Err(crate::Error::new(Kind::Parse, Box::new(err)));
-				}
-			},
-			Err(err) => {
-				return Err(crate::Error::new(Kind::Request, Box::new(err)));
-			}
-		};
-
-		// Easy pretty print for debug.
-		// println!("{}", serde_json::to_string_pretty(&serde_json::from_str::<serde_json::Value>(&json).unwrap()).unwrap());
-
-		let response: R = match serde_json::from_str(&json) {
-			Ok(res) => res,
-			Err(err) => {
-				return Err(crate::Error::new(Kind::Parse, Box::new(err)));
-			}
-		};
-
-		Ok(response)
+		serde_json::from_str(json).map_err(crate::Error::parse)
 	}
 
-	pub async fn query_user(&self, name: &str) -> crate::Result<PlayerResponse> {
+	pub async fn query_user(&self, name: &str) -> crate::Result<MaybeMulti<PlayerMulti, PlayerResponse>> {
 		let url = self.player_url.join(name).unwrap();
-		self.json_req(url).await
+
+		let res = self.get(url).await?;
+
+		let status = res.status();
+		let json = res.text().await.map_err(crate::Error::request)?;
+
+		if status == StatusCode::MULTIPLE_CHOICES {
+			Ok(MaybeMulti::Multi(Self::decode_json(&json)?))
+		} else {
+			Ok(MaybeMulti::Single(Self::decode_json(&json)?))
+		}
 	}
 
-	pub async fn query_guild_name(&self, name: &str) -> crate::Result<GuildResponse> {
+	pub async fn query_guild_name(&self, name: &str) -> crate::Result<MaybeMulti<GuildMulti, GuildResponse>> {
 		let url = self.guild_url.join(name).unwrap();
-		self.json_req(url).await
+
+		let res = self.get(url).await?;
+
+		let status = res.status();
+		let json = res.text().await.map_err(crate::Error::request)?;
+
+		if status == StatusCode::MULTIPLE_CHOICES {
+			Ok(MaybeMulti::Multi(Self::decode_json(&json)?))
+		} else {
+			Ok(MaybeMulti::Single(Self::decode_json(&json)?))
+		}
 	}
 
 	pub async fn query_guild_prefix(&self, prefix: &str) -> crate::Result<GuildResponse> {
 		let url = self.guild_prefix_url.join(prefix).unwrap();
-		self.json_req(url).await
+
+		let res = self.get(url).await?;
+		let json = res.text().await.map_err(crate::Error::request)?;
+
+		Self::decode_json(&json)
 	}
 
 	pub async fn query_guild_list(&self) -> crate::Result<GuildList> {
-		self.json_req(self.guild_list_url.clone()).await
+		let res = self.get(self.guild_list_url.clone()).await?;
+		let json = res.text().await.map_err(crate::Error::request)?;
+
+		Self::decode_json(&json)
 	}
 }
 

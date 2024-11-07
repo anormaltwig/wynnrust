@@ -22,6 +22,20 @@ impl Error {
 	pub(crate) fn new(kind: Kind, source: Box<dyn StdError>) -> Self {
 		Self { kind, source }
 	}
+
+	pub(crate) fn request<E>(source: E) -> Self
+	where
+		E: StdError + 'static,
+	{
+		Self::new(Kind::Request, Box::new(source))
+	}
+
+	pub(crate) fn parse<E>(source: E) -> Self
+	where
+		E: StdError + 'static,
+	{
+		Self::new(Kind::Parse, Box::new(source))
+	}
 }
 
 impl Display for Error {

@@ -16,7 +16,7 @@ pub struct MemberData {
 #[serde(rename_all = "camelCase")]
 pub struct MemberList {
 	pub total: u32,
-	pub owner: HashMap<String, MemberData>, // ????
+	pub owner: HashMap<String, MemberData>, // Multiple???
 	pub chief: HashMap<String, MemberData>,
 	pub strategist: HashMap<String, MemberData>,
 	pub captain: HashMap<String, MemberData>,
@@ -56,4 +56,11 @@ impl Deref for GuildList {
 	fn deref(&self) -> &Self::Target {
 		&self.0
 	}
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuildMulti {
+	pub name: String,
+	pub prefix: String,
 }
